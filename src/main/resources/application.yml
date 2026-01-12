@@ -1,0 +1,17 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: billing-batch
+  datasource:
+    url: jdbc:mysql://mysql:3306/billing?serverTimezone=Asia/Seoul
+    username: billing
+    password: billing
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false

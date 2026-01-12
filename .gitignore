@@ -1,0 +1,58 @@
+# =========================
+# Spring Boot (Gradle)
+# =========================
+.gradle/
+build/
+out/
+
+# Gradle Wrapper (필수 → 커밋 유지)
+!gradle/wrapper/gradle-wrapper.jar
+!gradlew
+!gradlew.bat
+
+# =========================
+# Environment / Secrets
+# =========================
+.env
+*.env
+.env.*
+!.env.example
+
+# =========================
+# IDE / Editor
+# =========================
+
+## STS / Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+bin/
+
+## IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+## VS Code
+.vscode/
+
+## NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# =========================
+# OS / Misc
+# =========================
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
