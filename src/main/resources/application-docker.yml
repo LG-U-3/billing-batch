@@ -7,7 +7,7 @@ spring:
     name: billing-batch
   batch:
     jdbc:
-      initialize-schema: never 
+      initialize-schema: never
 
   datasource:
     url: jdbc:mysql://mysql:3306/billing_system?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
