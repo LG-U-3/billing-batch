@@ -10,4 +10,9 @@ class BillingBatchApplicationTests {
 	void contextLoads() {
 	}
 
+  @Test
+  void test() {
+
+  }
+
 }

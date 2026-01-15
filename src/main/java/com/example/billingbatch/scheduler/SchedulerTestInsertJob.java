@@ -19,9 +19,9 @@ public class SchedulerTestInsertJob {
   )
   public void insertAutoRun() {
     System.out.println("=== Scheduler insertAutoRun START ===");
-    jdbcTemplate.update(
-        "INSERT INTO scheduler_test_runs (run_type, created_at) VALUES (?, NOW())",
-        "AUTO"
-    );
+//    jdbcTemplate.update(
+//        "INSERT INTO scheduler_test_runs (run_type, created_at) VALUES (?, NOW())",
+//        "AUTO"
+//    );
   }
 }
