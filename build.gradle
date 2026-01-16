@@ -8,11 +8,6 @@ group = 'com.example'
 version = '0.0.1-SNAPSHOT'
 description = '청구서 데이터 생성 배치 시스템'
 
-java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
-}
 
 repositories {
 	mavenCentral()
@@ -33,6 +28,8 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.batch:spring-batch-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	
+	developmentOnly 'org.springframework.boot:spring-boot-devtools' // DevTools 자동재시작 의존성
 }
 
 tasks.named('test') {

@@ -1,10 +1,8 @@
 package com.example.billingbatch.jobs.settlement;
 
-import com.example.billingbatch.domain.BillingSettlement;
-import com.example.billingbatch.jobs.settlement.BillingJobListener;
-import java.time.LocalDateTime;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.HashMap;
+import java.util.Map;
+import javax.sql.DataSource;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -20,10 +18,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
-
-import javax.sql.DataSource;
-import java.util.HashMap;
-import java.util.Map;
+import com.example.billingbatch.domain.BillingSettlement;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Configuration
