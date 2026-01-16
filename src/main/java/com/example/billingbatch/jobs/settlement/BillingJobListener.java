@@ -1,6 +1,7 @@
 package com.example.billingbatch.jobs.settlement;
 
 import com.example.billingbatch.jobs.settlement.status.BatchRunStatus;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.BatchStatus;
@@ -30,7 +31,7 @@ public class BillingJobListener implements JobExecutionListener {
 
     // 2. batch_runs 테이블에 시작 기록 (INSERT)
 //    String sql = "INSERT INTO batch_runs (job_code, target_month, batch_status, started_at) VALUES (?, ?, ?, ?)";
-    String sql = "INSERT INTO batch_runs (target_month, status_id, started_at) VALUES (?, ?, ?)";
+    String sql = "INSERT INTO batch_runs (target_month, status_id, started_at, created_by) VALUES (?, ?, ?, ?)";
 
     KeyHolder keyHolder = new GeneratedKeyHolder();
 
@@ -39,6 +40,7 @@ public class BillingJobListener implements JobExecutionListener {
       ps.setString(1, targetMonth);
       ps.setLong(2, 4);
       ps.setTimestamp(3, Timestamp.valueOf(LocalDateTime.now()));
+      ps.setString(4, "ADMIN");
       return ps;
     }, keyHolder);
 
@@ -55,8 +57,6 @@ public class BillingJobListener implements JobExecutionListener {
     Long batchRunId = jobExecution.getExecutionContext().getLong("batchRunId");
 
     // 2. 성공/실패 건수 집계
-//    long writeCount = jobExecution.getStepExecutions().stream().mapToLong(s -> s.getWriteCount()).sum();
-//    long failCount = jobExecution.getStepExecutions().stream().mapToLong(s -> s.getSkipCount()).sum();
     long writeCount = jobExecution.getStepExecutions()
         .stream()
         .mapToLong(s -> s.getWriteCount())
@@ -67,18 +67,21 @@ public class BillingJobListener implements JobExecutionListener {
         .sum();
 
 
-    // 3. 상태 결정
-//    String status = (jobExecution.getStatus() == BatchStatus.COMPLETED) ? "COMPLETED" : "FAILED";
-
     // status_id 추가
     long statusId = (jobExecution.getStatus() == BatchStatus.COMPLETED)
         ? BatchRunStatus.COMPLETED.getCodeId()
         : BatchRunStatus.FAILED.getCodeId();
 
-    // 4. 종료 기록 (UPDATE)
-    String sql = "UPDATE batch_runs SET status_id = ?, ended_at = ?, success_count = ?, total_count = ? WHERE batch_run_id = ?";
+    // 소요 시간 계산
+    LocalDateTime startTime = jobExecution.getStartTime();
+    LocalDateTime endTime = jobExecution.getEndTime();
+    long durationMs = Duration.between(startTime, endTime).toMillis();
 
-    jdbcTemplate.update(sql, statusId, Timestamp.valueOf(LocalDateTime.now()), writeCount, writeCount + failCount, batchRunId);
+
+    // 4. 종료 기록 (UPDATE)
+    String sql = "UPDATE batch_runs SET status_id = ?, ended_at = ?, duration_ms = ?, success_count = ?, total_count = ? WHERE batch_run_id = ?";
+
+    jdbcTemplate.update(sql, statusId, Timestamp.valueOf(LocalDateTime.now()), durationMs, writeCount, writeCount + failCount, batchRunId);
 
     log.info(">>> [배치 종료] 상태: {}, 처리건수: {}", statusId, writeCount);
   }
