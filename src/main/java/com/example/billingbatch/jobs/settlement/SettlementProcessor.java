@@ -27,10 +27,20 @@ public class SettlementProcessor implements ItemProcessor<Long, BillingSettlemen
   private Long batchRunId;
   private String targetMonth;
 
+  private Map<Long, String> serviceIdName;
+
   @BeforeStep
   public void beforeStep(StepExecution stepExecution) {
     this.batchRunId = stepExecution.getJobExecution().getExecutionContext().getLong("batchRunId");
     this.targetMonth = stepExecution.getJobParameters().getString("targetMonth", "2025-12");
+
+    // service_name 캐싱 (uplus_services - Map<id, name>)
+    String sql = "SELECT id, name FROM uplus_services";
+    List<UplusService> services = jdbcTemplate.query(sql, new BeanPropertyRowMapper<>(UplusService.class));
+    serviceIdName = new LinkedHashMap<>();
+    for (UplusService s : services) {
+      serviceIdName.put(s.getId(), s.getName());
+    }
   }
 
   @Override
@@ -65,9 +75,8 @@ public class SettlementProcessor implements ItemProcessor<Long, BillingSettlemen
       // 상품ID
       item.put("serviceId", h.getServiceId());
 
-      // 상품명
-      String serviceNameSql = "SELECT name FROM uplus_services WHERE id = " + h.getServiceId();
-      String serviceName = jdbcTemplate.queryForObject(serviceNameSql, String.class);
+      // 상품명 (serviceIdName에서 id로 조회)
+      String serviceName = serviceIdName.get(h.getServiceId());
       item.put("serviceName", serviceName);
 
       // 상품 금액, 청구일자
