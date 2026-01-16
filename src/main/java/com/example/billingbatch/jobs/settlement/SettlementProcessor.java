@@ -2,6 +2,7 @@ package com.example.billingbatch.jobs.settlement;
 
 import com.example.billingbatch.domain.BillingSettlement;
 import com.example.billingbatch.domain.ChargedHistory;
+import com.example.billingbatch.domain.UplusService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.StepExecution;
@@ -47,7 +48,7 @@ public class SettlementProcessor implements ItemProcessor<Long, BillingSettlemen
     for (ChargedHistory h : histories) {
       chargedSum += h.getChargedPrice();
 
-      // Null Safe 처리 (Java 버전에 따라 Objects.requireNonNullElse 등 사용 가능)
+      // Null Safe 처리
       long contract = h.getContractDiscountPrice() != null ? h.getContractDiscountPrice() : 0;
       long bundled = h.getBundledDiscountPrice() != null ? h.getBundledDiscountPrice() : 0;
       long premier = h.getPremierDiscountPrice() != null ? h.getPremierDiscountPrice() : 0;
@@ -55,9 +56,29 @@ public class SettlementProcessor implements ItemProcessor<Long, BillingSettlemen
       discountSum += (contract + bundled + premier);
 
       Map<String, Object> item = new LinkedHashMap<>();
+
+      // 상품타입
+      if (h.getServiceId() == 1 ) item.put("typeId", "부가서비스");
+      else if (h.getServiceId() == 2 ) item.put("typeId: ", "소액결제");
+      else item.put("typeId", "요금제");
+
+      // 상품ID
       item.put("serviceId", h.getServiceId());
+
+      // 상품명
+      String serviceNameSql = "SELECT name FROM uplus_services WHERE id = " + h.getServiceId();
+      String serviceName = jdbcTemplate.queryForObject(serviceNameSql, String.class);
+      item.put("serviceName", serviceName);
+
+      // 상품 금액, 청구일자
       item.put("chargedPrice", h.getChargedPrice());
       item.put("createdAt", h.getCreatedAt().toString());
+
+      // 할인 항목별 금액
+      item.put("contractDiscountPrice", contract);
+      item.put("BundledDiscountPrice", bundled);
+      item.put("PremierDiscountPrice", premier);
+
       items.add(item);
     }
 
