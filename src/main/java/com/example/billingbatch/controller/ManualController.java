@@ -22,19 +22,6 @@ public class ManualController {
   private final JobLauncher jobLauncher;
   private final Job billingJob;
 
-  @PostMapping("/manual")
-  public String insertManualRun(
-      @RequestParam(defaultValue = "tester") String triggeredBy
-  ) {
-    jdbcTemplate.update(
-        "INSERT INTO scheduler_test_runs (run_type, triggered_by, created_at) VALUES (?, ?, NOW())",
-        "MANUAL",
-        triggeredBy
-    );
-
-    return "MANUAL scheduler_test_runs inserted";
-  }
-
   @PostMapping("/billing-job")
   public String launchBillingJob(@RequestParam(defaultValue = "2025-12") String targetMonth) {
     log.info(">>>>> [배치API호출됨] Received a request to run the billing job for month: {}", targetMonth);
