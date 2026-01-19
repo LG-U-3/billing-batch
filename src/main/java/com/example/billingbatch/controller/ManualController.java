@@ -1,11 +1,14 @@
 package com.example.billingbatch.controller;
 
+import com.example.billingbatch.jobs.settlement.BatchRecoveryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
+import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,31 +25,49 @@ public class ManualController {
   private final JobLauncher jobLauncher;
   private final Job billingJob;
 
-  @PostMapping("/billing-job")
-  public String launchBillingJob(@RequestParam(defaultValue = "2025-12") String targetMonth) {
-    log.info(">>>>> [배치API호출됨] Received a request to run the billing job for month: {}", targetMonth);
-    System.out.println("=== JobController START ==");
-    Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM billing_settlements", Integer.class);
+  /**
+   * 상태 변경
+   **/
+  private final BatchRecoveryService batchRecoveryService;
 
-    if (count != null && count == 0) {
-      log.info(">>>>> [배치 실행] billing_settlements 테이블이 비어있습니다. 배치를 실행합니다.");
+  @PostMapping("/manual")
+  public String insertManualRun(
+      @RequestParam(defaultValue = "tester") String triggeredBy
+  ) {
+    jdbcTemplate.update(
+        "INSERT INTO scheduler_test_runs (run_type, triggered_by, created_at) VALUES (?, ?, NOW())",
+        "MANUAL",
+        triggeredBy
+    );
 
-      JobParameters jobParameters = new JobParametersBuilder()
-          .addString("targetMonth", "2025-12")
-          .addLong("time", System.currentTimeMillis())
-          .toJobParameters();
-
-      try {
-        jobLauncher.run(billingJob, jobParameters);
-        return ">>>>> 배치가 성공적으로 완료되었습니다.";
-      } catch (Exception e) {
-        log.error(">>>>> [에러발생] 배치 실행 중 에러 발생: {}", e.getMessage());
-        e.printStackTrace();
-        return ">>>>> 오류가 발생하여 종료합니다.";
-      }
-    } else {
-      return ">>>>> billing_settlements 데이터가 존재합니다. 개수 : " + count + " 개 | 배치를 실행하지 않습니다.";
-    }
+    return "MANUAL scheduler_test_runs inserted";
   }
 
+  @PostMapping("/billing-job")
+  public String launchBillingJob(
+      @RequestParam(defaultValue = "2025-12") String targetMonth
+  ) {
+    log.info(">>>>> [배치API호출됨] billing job for month: {}", targetMonth);
+
+    JobParameters jobParameters = new JobParametersBuilder()
+        // JobInstance 식별자 (고정)
+        .addString("targetMonth", targetMonth)
+        .toJobParameters();
+
+    // 같은 JobParameters의 JobInstance만 복구
+    batchRecoveryService.recoverForRestart("billingJob", jobParameters);
+
+    try {
+      jobLauncher.run(billingJob, jobParameters);
+      return ">>>>> 배치 실행 요청 완료";
+    } catch (JobExecutionAlreadyRunningException e) { // 이미 실행중인 배치 있을 때: 같은 JobName + 같은 JobParameter + 상태 started
+      return ">>>>> 이미 실행 중인 배치가 있습니다.";
+    } catch (JobInstanceAlreadyCompleteException e) { // 이미 완료된 배치일 때: 같은 JobName + 같은 JobParameter + 상태 completed
+      return ">>>>> 이미 완료된 배치입니다.";
+    } catch (Exception e) {
+      log.error(">>>>> 배치 실행 중 에러", e);
+      return ">>>>> 배치 실행 실패";
+    }
+  }
 }
+
