@@ -1,8 +1,9 @@
 package com.example.billingbatch.jobs.settlement;
 
 import com.example.billingbatch.domain.BillingSettlement;
-import com.example.billingbatch.jobs.settlement.BillingJobListener;
-import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -20,10 +21,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
-
-import javax.sql.DataSource;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @Configuration
@@ -47,7 +44,8 @@ public class BillingJobConfig {
   int size = 10_000;
 
   @Bean
-  public Job billingJob(JobRepository jobRepository, Step settlementStep, Step messageReservationStep) {
+  public Job billingJob(JobRepository jobRepository, Step settlementStep,
+      Step messageReservationStep) {
     return new JobBuilder("billingJob", jobRepository)
         .listener(billingJobListener)
         .start(settlementStep)
@@ -57,7 +55,8 @@ public class BillingJobConfig {
 
   // ★ Chunk Size 10_000 설정
   @Bean
-  public Step settlementStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+  public Step settlementStep(JobRepository jobRepository,
+      PlatformTransactionManager transactionManager) {
     return new StepBuilder("settlementStep", jobRepository)
         .<Long, BillingSettlement>chunk(size, transactionManager)
         .reader(drivingReader())
@@ -89,8 +88,14 @@ public class BillingJobConfig {
   public JdbcBatchItemWriter<BillingSettlement> settlementWriter() {
     return new JdbcBatchItemWriterBuilder<BillingSettlement>()
         .dataSource(dataSource)
-        .sql("INSERT INTO billing_settlements (batch_run_id, user_id, target_month, detail_json, final_amount) " +
-            "VALUES (:batchRunId, :userId, :targetMonth, :detailJson, :finalAmount)")
+        .sql(
+            "INSERT INTO billing_settlements (batch_run_id, user_id, target_month, detail_json, final_amount) "
+                +
+                "VALUES (:batchRunId, :userId, :targetMonth, :detailJson, :finalAmount) " +
+                "ON DUPLICATE KEY UPDATE " +
+                "batch_run_id = VALUES(batch_run_id), " +
+                "detail_json = VALUES(detail_json), " +
+                "final_amount = VALUES(final_amount)")
         .beanMapped()
         .build();
   }
@@ -100,7 +105,8 @@ public class BillingJobConfig {
   // 3. Step 2: 알림 예약 (Tasklet - 단일 건 처리)
   // =========================================================================
   @Bean
-  public Step messageReservationStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+  public Step messageReservationStep(JobRepository jobRepository,
+      PlatformTransactionManager transactionManager) {
     return new StepBuilder("messageReservationStep", jobRepository)
         .tasklet((contribution, chunkContext) -> {
 
