@@ -1,6 +1,7 @@
 package com.example.billingbatch.controller;
 
 import com.example.billingbatch.jobs.settlement.BatchRecoveryService;
+import java.time.YearMonth;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -45,8 +46,13 @@ public class ManualController {
 
   @PostMapping("/billing-job")
   public String launchBillingJob(
-      @RequestParam(defaultValue = "2025-12") String targetMonth
+      @RequestParam(required = false) String targetMonth
   ) {
+
+    if (targetMonth == null) {
+      targetMonth = YearMonth.now().minusMonths(1).toString();
+    }
+
     log.info(">>>>> [배치API호출됨] billing job for month: {}", targetMonth);
 
     JobParameters jobParameters = new JobParametersBuilder()
@@ -54,8 +60,6 @@ public class ManualController {
         .addString("targetMonth", targetMonth)
         .toJobParameters();
 
-    // 같은 JobParameters의 JobInstance만 복구
-    batchRecoveryService.recoverForRestart("billingJob", jobParameters);
 
     try {
       jobLauncher.run(billingJob, jobParameters);

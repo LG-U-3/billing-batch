@@ -1,20 +1,21 @@
 package com.example.billingbatch.jobs.settlement;
 
+import com.example.billingbatch.domain.RecoveredJobTarget;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.JobInstance;
-import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.stereotype.Service;
 
-/** Job 실행/중단/재시작 제어 **/
+/** Job 재시작 제어 **/
 
 @Slf4j
 @Service
@@ -24,52 +25,60 @@ public class BatchRecoveryService {
   private final JobExplorer jobExplorer;
   private final JobRepository jobRepository;
 
-  /**
-   * STARTED 상태로 남아 있는 JobExecution을 안전하게 중단
-   */
-  public void recoverForRestart(String jobName, JobParameters jobParameters) {
 
-    JobInstance jobInstance =
-        jobExplorer.getJobInstance(jobName, jobParameters);
+  /** 공통로직 **/
+  private void recoverExecution(JobExecution execution) {
 
-    if (jobInstance == null) {
-      log.info(">>> [배치 복구] JobInstance 없음. 복구할 대상 없음");
-      return;
-    }
+    log.warn(">>> [배치 복구] execution 복구 시작. id={}, status={}",
+        execution.getId(), execution.getStatus());
 
-    for (JobExecution execution : jobExplorer.getJobExecutions(jobInstance)) {
+    // StepExecution 정리
+    for (StepExecution stepExecution : execution.getStepExecutions()) {
+      if (stepExecution.getStatus() == BatchStatus.STARTED
+          || stepExecution.getStatus() == BatchStatus.STOPPING) {
 
-      if (execution.getStatus() == BatchStatus.STARTED
-          || execution.getStatus() == BatchStatus.STOPPING) {
+        stepExecution.setStatus(BatchStatus.FAILED);
+        stepExecution.setExitStatus(ExitStatus.FAILED);
+        stepExecution.setEndTime(LocalDateTime.now());
 
-        log.warn(">>> [배치 복구] 재시작 대상 execution 발견. id={}, status={}",
-            execution.getId(), execution.getStatus());
-
-        // 1.  StepExecution 먼저 정리
-        for (StepExecution stepExecution : execution.getStepExecutions()) {
-          if (stepExecution.getStatus().isRunning()) {
-            stepExecution.setStatus(BatchStatus.FAILED);
-            stepExecution.setExitStatus(ExitStatus.FAILED);
-            stepExecution.setEndTime(LocalDateTime.now());
-
-            jobRepository.update(stepExecution);
-
-            log.warn(">>> [배치 복구] StepExecution {} → FAILED",
-                stepExecution.getId());
-          }
-        }
-
-        // 2. JobExecution 정리
-        execution.setStatus(BatchStatus.FAILED);
-        execution.setExitStatus(ExitStatus.FAILED);
-        execution.setEndTime(LocalDateTime.now());
-
-        jobRepository.update(execution);
-
-        log.warn(">>> [배치 복구] executionId={} → FAILED 처리 완료",
-            execution.getId());
-
+        jobRepository.update(stepExecution);
       }
     }
+
+    // JobExecution 정리
+    execution.setStatus(BatchStatus.FAILED);
+    execution.setExitStatus(ExitStatus.FAILED);
+    execution.setEndTime(LocalDateTime.now());
+
+    jobRepository.update(execution);
+
+    log.warn(">>> [배치 복구] executionId={} → FAILED 처리 완료",
+        execution.getId());
   }
+
+
+
+  /** 서버 시작 시 바로 실행, 재실행 위한 값(job name, job parameter) return **/
+  public List<RecoveredJobTarget> recoverAllStuckExecutions() {
+
+    Set<JobExecution> stuckExecutions =
+        jobExplorer.findRunningJobExecutions("billingJob");
+
+    List<RecoveredJobTarget> recoveredTargets = new ArrayList<>();
+
+    for (JobExecution execution : stuckExecutions) {
+
+      recoverExecution(execution); // STARTED → FAILED
+
+      recoveredTargets.add(
+          new RecoveredJobTarget(
+              execution.getJobInstance().getJobName(),
+              execution.getJobParameters()
+          )
+      );
+    }
+
+    return recoveredTargets;
+  }
+
 }

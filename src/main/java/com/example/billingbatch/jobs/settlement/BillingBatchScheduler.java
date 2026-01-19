@@ -1,7 +1,7 @@
 package com.example.billingbatch.jobs.settlement;
 // TODO 1/16 스케줄러 수정 예정
 
-import java.time.LocalDateTime;
+import java.time.YearMonth;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -23,8 +23,11 @@ public class BillingBatchScheduler {
   @Scheduled(cron = "0 0 2 1 * *", zone = "Asia/Seoul") // 초 분 시 일 월 년
   public void runBillingJob() {
     try {
+
+      String targetMonth = YearMonth.now().minusMonths(1).toString();
+
       JobParameters jobParameters = new JobParametersBuilder()
-          .addString("requestDate", LocalDateTime.now().toString())
+          .addString("targetMonth", targetMonth)
           .toJobParameters();
 
       jobLauncher.run(billingJob, jobParameters);
