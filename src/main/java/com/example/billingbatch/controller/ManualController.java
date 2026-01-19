@@ -76,13 +76,9 @@ public class ManualController {
 
   /** test용 **/
   @PostMapping("/billing-job-test")
-  public String launchBillingJobTest(
-      @RequestParam(required = false) String targetMonth
-  ) {
+  public String launchBillingJobTest() {
 
-    if (targetMonth == null) {
-      targetMonth = YearMonth.now().minusMonths(1).toString();
-    }
+    String targetMonth = YearMonth.now().minusMonths(1).toString();
 
     /** 배치 완료될때마다 수정 ex) test2, test3,... **/
     String test = "test1";
