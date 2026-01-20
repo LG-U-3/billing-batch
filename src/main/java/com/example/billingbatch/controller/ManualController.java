@@ -70,5 +70,36 @@ public class ManualController {
       return ">>>>> 배치 실행 실패";
     }
   }
+
+  /** test용 **/
+  @PostMapping("/billing-job-test")
+  public String launchBillingJobTest() {
+
+    String targetMonth = YearMonth.now().minusMonths(1).toString();
+
+    /** 배치 완료될때마다 수정 ex) test2, test3,... **/
+    String test = "test1";
+    log.info(">>>>> [배치API호출됨] billing job for month: {}", targetMonth);
+
+    JobParameters jobParameters = new JobParametersBuilder()
+        // JobInstance 식별자 (고정)
+        .addString("targetMonth", targetMonth)
+        .addString("test", test)
+        .toJobParameters();
+
+
+    try {
+      jobLauncher.run(billingJob, jobParameters);
+      return ">>>>> 배치 실행 요청 완료";
+    } catch (JobExecutionAlreadyRunningException e) { // 이미 실행중인 배치 있을 때: 같은 JobName + 같은 JobParameter + 상태 started
+      return ">>>>> 이미 실행 중인 배치가 있습니다.";
+    } catch (JobInstanceAlreadyCompleteException e) { // 이미 완료된 배치일 때: 같은 JobName + 같은 JobParameter + 상태 completed
+      return ">>>>> 이미 완료된 배치입니다.";
+    } catch (Exception e) {
+      log.error(">>>>> 배치 실행 중 에러", e);
+      return ">>>>> 배치 실행 실패";
+    }
+  }
+
 }
 
