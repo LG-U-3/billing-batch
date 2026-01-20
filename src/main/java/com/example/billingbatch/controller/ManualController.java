@@ -45,19 +45,16 @@ public class ManualController {
   }
 
   @PostMapping("/billing-job")
-  public String launchBillingJob(
-      @RequestParam(required = false) String targetMonth
-  ) {
+  public String launchBillingJob() {
 
-    if (targetMonth == null) {
-      targetMonth = YearMonth.now().minusMonths(1).toString();
-    }
+    String targetMonth = YearMonth.now().minusMonths(1).toString();
 
     log.info(">>>>> [배치API호출됨] billing job for month: {}", targetMonth);
 
     JobParameters jobParameters = new JobParametersBuilder()
         // JobInstance 식별자 (고정)
         .addString("targetMonth", targetMonth)
+        .addString("createdBy", "ADMIN", false)
         .toJobParameters();
 
 
