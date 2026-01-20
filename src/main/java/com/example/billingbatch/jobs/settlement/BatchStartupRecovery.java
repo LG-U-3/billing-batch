@@ -10,9 +10,11 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
 import org.springframework.batch.core.repository.JobRestartException;
+import org.springframework.beans.factory.UnsatisfiedDependencyException;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.CannotCreateTransactionException;
 
 /** 서버 시작 후 바로 실행 **/
 @Component
@@ -56,6 +58,10 @@ public class BatchStartupRecovery {
 
       } catch (JobParametersInvalidException e) {
         log.error(">>> 잘못된 JobParameters입니다. params={}",
+            target.getJobParameters(), e);
+      } catch (UnsatisfiedDependencyException
+               | CannotCreateTransactionException e) {
+        log.error(">>> db 연결에 오류가 발생했습니다. params={}",
             target.getJobParameters(), e);
       }
     }
