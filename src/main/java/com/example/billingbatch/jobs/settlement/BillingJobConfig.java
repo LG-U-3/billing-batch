@@ -3,6 +3,7 @@ package com.example.billingbatch.jobs.settlement;
 import com.example.billingbatch.domain.BillingSettlement;
 import com.example.billingbatch.domain.ChargedHistory;
 import com.example.billingbatch.jobs.settlement.BillingJobListener;
+import java.net.ConnectException;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilde
 import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
 import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
 import org.springframework.batch.repeat.RepeatStatus;
+import org.springframework.beans.factory.UnsatisfiedDependencyException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
@@ -59,6 +61,10 @@ public class BillingJobConfig {
         .reader(drivingReader())
         .processor(settlementProcessor)
         .writer(settlementWriter())
+        .faultTolerant()
+        .retry(ConnectException.class)
+        .retry(UnsatisfiedDependencyException.class)
+        .retryLimit(3)
         .build();
   }
 

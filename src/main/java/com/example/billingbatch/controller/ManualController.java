@@ -1,6 +1,7 @@
 package com.example.billingbatch.controller;
 
 import com.example.billingbatch.jobs.settlement.BatchRecoveryService;
+import java.sql.SQLTransientConnectionException;
 import java.time.YearMonth;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,7 +11,9 @@ import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
+import org.springframework.beans.factory.UnsatisfiedDependencyException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -78,7 +81,7 @@ public class ManualController {
     String targetMonth = YearMonth.now().minusMonths(1).toString();
 
     /** 배치 완료될때마다 수정 ex) test2, test3,... **/
-    String test = "test1";
+    String test = "test2";
     log.info(">>>>> [배치API호출됨] billing job for month: {}", targetMonth);
 
     JobParameters jobParameters = new JobParametersBuilder()
@@ -95,6 +98,8 @@ public class ManualController {
       return ">>>>> 이미 실행 중인 배치가 있습니다.";
     } catch (JobInstanceAlreadyCompleteException e) { // 이미 완료된 배치일 때: 같은 JobName + 같은 JobParameter + 상태 completed
       return ">>>>> 이미 완료된 배치입니다.";
+    } catch (UnsatisfiedDependencyException | CannotCreateTransactionException e) {
+      return "DB 연결에 문제가 발생했습니다. 연결을 확인해주세요.";
     } catch (Exception e) {
       log.error(">>>>> 배치 실행 중 에러", e);
       return ">>>>> 배치 실행 실패";
