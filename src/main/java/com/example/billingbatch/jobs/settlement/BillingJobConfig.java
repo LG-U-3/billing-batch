@@ -14,6 +14,7 @@ import org.springframework.batch.item.database.Order;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
 import org.springframework.batch.repeat.RepeatStatus;
+import org.springframework.beans.factory.UnsatisfiedDependencyException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -53,6 +54,10 @@ public class BillingJobConfig {
         .reader(drivingReader())
         .processor(settlementProcessor)
         .writer(settlementWriter())
+        .faultTolerant()
+        .retry(ConnectException.class)
+        .retry(UnsatisfiedDependencyException.class)
+        .retryLimit(3)
         .build();
   }
 
@@ -92,33 +97,5 @@ public class BillingJobConfig {
         .build();
   }
 
-  // Step 2 (Tasklet)은 기존 유지...
-  // =========================================================================
-  // 3. Step 2: 알림 예약 (Tasklet - 단일 건 처리)
-  // =========================================================================
-  @Bean
-  public Step messageReservationStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-    return new StepBuilder("messageReservationStep", jobRepository)
-        .tasklet((contribution, chunkContext) -> {
 
-//          // 예시: 전체 유저 그룹(group_id=1)에게 내일 오전 9시 발송 예약
-//          // template_id 등은 실제 DB에 존재하는 값이어야 함
-//          String sql = "INSERT INTO message_reservations " +
-//              "(status, scheduled_at, channel_type, template_id, template_type, user_group_id) " +
-//              "VALUES (?, ?, ?, ?, ?, ?)";
-//
-//          jdbcTemplate.update(sql,
-//              "WAITING",
-//              LocalDateTime.now().plusDays(1).withHour(9).withMinute(0).withSecond(0), // 내일 09:00
-//              "SMS",
-//              1L, // 템플릿 ID (Dummy)
-//              "SMS",
-//              1L  // 전체 유저 그룹 ID (Dummy)
-//          );
-
-          log.info(">>> [알림 예약] 정산 완료 알림 메시지 예약 생성 완료");
-          return RepeatStatus.FINISHED;
-        }, transactionManager)
-        .build();
-  }
 }
