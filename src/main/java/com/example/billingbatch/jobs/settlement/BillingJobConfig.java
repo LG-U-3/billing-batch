@@ -1,9 +1,6 @@
 package com.example.billingbatch.jobs.settlement;
 
 import com.example.billingbatch.domain.BillingSettlement;
-import com.example.billingbatch.domain.ChargedHistory;
-import com.example.billingbatch.jobs.settlement.BillingJobListener;
-import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -12,16 +9,13 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
-import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.Order;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
-import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
 import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
@@ -85,8 +79,15 @@ public class BillingJobConfig {
   public JdbcBatchItemWriter<BillingSettlement> settlementWriter() {
     return new JdbcBatchItemWriterBuilder<BillingSettlement>()
         .dataSource(dataSource)
-        .sql("INSERT INTO billing_settlements (batch_run_id, user_id, target_month, detail_json, final_amount) " +
-            "VALUES (:batchRunId, :userId, :targetMonth, :detailJson, :finalAmount)")
+//        .sql("INSERT INTO billing_settlements (batch_run_id, user_id, target_month, detail_json, final_amount) " +
+//            "VALUES (:batchRunId, :userId, :targetMonth, :detailJson, :finalAmount)")
+        .sql("INSERT INTO billing_settlements "
+            + "(batch_run_id, user_id, target_month, detail_json, final_amount) "
+            + "VALUES (:batchRunId, :userId, :targetMonth, :detailJson, :finalAmount) "
+            + "ON DUPLICATE KEY UPDATE "
+            + "detail_json = VALUES(detail_json), "
+            + "final_amount = VALUES(final_amount), "
+            + "    batch_run_id = VALUES(batch_run_id)")
         .beanMapped()
         .build();
   }
