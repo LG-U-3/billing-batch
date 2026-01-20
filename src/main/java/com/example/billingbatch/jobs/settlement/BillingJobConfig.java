@@ -1,6 +1,10 @@
 package com.example.billingbatch.jobs.settlement;
 
 import com.example.billingbatch.domain.BillingSettlement;
+import java.net.ConnectException;
+import java.util.HashMap;
+import java.util.Map;
+import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -13,16 +17,11 @@ import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.Order;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
-import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.UnsatisfiedDependencyException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
-
-import javax.sql.DataSource;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @Configuration
@@ -38,7 +37,8 @@ public class BillingJobConfig {
   int size = 10_000;
 
   @Bean
-  public Job billingJob(JobRepository jobRepository, Step settlementStep, Step messageReservationStep) {
+  public Job billingJob(JobRepository jobRepository, Step settlementStep,
+      Step messageReservationStep) {
     return new JobBuilder("billingJob", jobRepository)
         .listener(billingJobListener)
         .start(settlementStep)
@@ -48,7 +48,8 @@ public class BillingJobConfig {
 
   // ★ Chunk Size 10_000 설정
   @Bean
-  public Step settlementStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+  public Step settlementStep(JobRepository jobRepository,
+      PlatformTransactionManager transactionManager) {
     return new StepBuilder("settlementStep", jobRepository)
         .<Long, BillingSettlement>chunk(size, transactionManager)
         .reader(drivingReader())
