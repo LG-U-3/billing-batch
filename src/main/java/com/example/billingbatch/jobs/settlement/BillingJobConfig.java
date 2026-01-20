@@ -97,7 +97,6 @@ public class BillingJobConfig {
         .build();
   }
 
-  // Step 2 (Tasklet)은 기존 유지...
   // =========================================================================
   // 3. Step 2: 알림 예약 (Tasklet - 단일 건 처리)
   // =========================================================================
@@ -106,20 +105,17 @@ public class BillingJobConfig {
     return new StepBuilder("messageReservationStep", jobRepository)
         .tasklet((contribution, chunkContext) -> {
 
-//          // 예시: 전체 유저 그룹(group_id=1)에게 내일 오전 9시 발송 예약
-//          // template_id 등은 실제 DB에 존재하는 값이어야 함
-//          String sql = "INSERT INTO message_reservations " +
-//              "(status, scheduled_at, channel_type, template_id, template_type, user_group_id) " +
-//              "VALUES (?, ?, ?, ?, ?, ?)";
-//
-//          jdbcTemplate.update(sql,
-//              "WAITING",
-//              LocalDateTime.now().plusDays(1).withHour(9).withMinute(0).withSecond(0), // 내일 09:00
-//              "SMS",
-//              1L, // 템플릿 ID (Dummy)
-//              "SMS",
-//              1L  // 전체 유저 그룹 ID (Dummy)
-//          );
+          String sql = "INSERT INTO message_reservations " +
+              "(scheduled_at, status_id,  channel_type, template_id, user_group_id) " +
+              "VALUES (?, ?, ?, ?, ?)";
+
+          jdbcTemplate.update(sql,
+              LocalDateTime.now().plusMinutes(5),
+              7, // WAITING 의 코드id
+              4, // "SMS"의 코드id
+              2L, // 1번째 email 템플릿 ID (Dummy)
+              1L  // all 유저 그룹 ID
+          );
 
           log.info(">>> [알림 예약] 정산 완료 알림 메시지 예약 생성 완료");
           return RepeatStatus.FINISHED;
