@@ -97,29 +97,5 @@ public class BillingJobConfig {
         .build();
   }
 
-  // =========================================================================
-  // 3. Step 2: 알림 예약 (Tasklet - 단일 건 처리)
-  // =========================================================================
-  @Bean
-  public Step messageReservationStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-    return new StepBuilder("messageReservationStep", jobRepository)
-        .tasklet((contribution, chunkContext) -> {
 
-          String sql = "INSERT INTO message_reservations " +
-              "(scheduled_at, status_id,  channel_type, template_id, user_group_id) " +
-              "VALUES (?, ?, ?, ?, ?)";
-
-          jdbcTemplate.update(sql,
-              LocalDateTime.now().plusMinutes(5),
-              7, // WAITING 의 코드id
-              4, // "SMS"의 코드id
-              2L, // 1번째 email 템플릿 ID (Dummy)
-              1L  // all 유저 그룹 ID
-          );
-
-          log.info(">>> [알림 예약] 정산 완료 알림 메시지 예약 생성 완료");
-          return RepeatStatus.FINISHED;
-        }, transactionManager)
-        .build();
-  }
 }
