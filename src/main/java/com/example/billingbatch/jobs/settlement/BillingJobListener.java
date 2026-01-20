@@ -26,12 +26,11 @@ public class BillingJobListener implements JobExecutionListener {
 
   @Override
   public void beforeJob(JobExecution jobExecution) {
-    // 1. Job Parameter에서 대상 월 가져오기 (없으면 exception)
-    String targetMonth = jobExecution.getJobParameters().getString("targetMonth");
 
-    if (targetMonth == null) {
-      throw new IllegalStateException("targetMonth JobParameter is required");
-    }
+    // 1. Job Parameter에서 targetMonth, createdBy ('ADMIN'이 넘어오지 않았다면 'AUTO')
+    String targetMonth = jobExecution.getJobParameters().getString("targetMonth", "2025-12");
+    String createdBy = jobExecution.getJobParameters().getString("createdBy", "AUTO");
+
 
     // 2. batch_runs 테이블에 시작 기록 (INSERT)
     String sql = "INSERT INTO batch_runs (target_month, status_id, started_at, created_by) VALUES (?, ?, ?, ?)";
@@ -43,7 +42,7 @@ public class BillingJobListener implements JobExecutionListener {
       ps.setString(1, targetMonth);
       ps.setLong(2, 4);
       ps.setTimestamp(3, Timestamp.valueOf(LocalDateTime.now()));
-      ps.setString(4, "ADMIN");
+      ps.setString(4, createdBy);
       return ps;
     }, keyHolder);
 
