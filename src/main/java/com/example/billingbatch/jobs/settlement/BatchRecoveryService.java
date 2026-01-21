@@ -1,7 +1,6 @@
 package com.example.billingbatch.jobs.settlement;
 
 import com.example.billingbatch.domain.RecoveredJobTarget;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -96,28 +95,33 @@ public class BatchRecoveryService {
   }
 
 
+  /**
+   * 가장 마지막 STARTED 실행을 FAILED로 복구 처리하고
+   * 해당 JobParameters를 반환한다.
+   */
+  public RecoveredJobTarget recoverLatestExecution(String targetMonth) {
 
-  /** 서버 시작 시 바로 실행, 재실행 위한 값(job name, job parameter) return **/
-  public List<RecoveredJobTarget> recoverAllStuckExecutions() {
+    Set<JobExecution> stuck = jobExplorer.findRunningJobExecutions("billingJob");
 
-    Set<JobExecution> stuckExecutions =
-        jobExplorer.findRunningJobExecutions("billingJob");
-
-    List<RecoveredJobTarget> recoveredTargets = new ArrayList<>();
-
-    for (JobExecution execution : stuckExecutions) {
-
-      recoverExecution(execution); // STARTED → FAILED
-
-      recoveredTargets.add(
-          new RecoveredJobTarget(
+    return stuck.stream()
+        .filter(e -> targetMonth.equals(
+            e.getJobParameters().getString("targetMonth")))
+        .max((a, b) -> {
+          if (a.getStartTime() == null && b.getStartTime() == null) {
+            return Long.compare(a.getId(), b.getId());
+          }
+          if (a.getStartTime() == null) return -1;
+          if (b.getStartTime() == null) return 1;
+          return a.getStartTime().compareTo(b.getStartTime());
+        })
+        .map(execution -> {
+          recoverExecution(execution); // 상태만 FAILED로 복구
+          return new RecoveredJobTarget(
               execution.getJobInstance().getJobName(),
               execution.getJobParameters()
-          )
-      );
-    }
-
-    return recoveredTargets;
+          );
+        })
+        .orElse(null);
   }
 
 }
