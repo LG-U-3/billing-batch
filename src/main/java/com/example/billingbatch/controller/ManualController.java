@@ -1,14 +1,15 @@
 package com.example.billingbatch.controller;
 
-import com.example.billingbatch.domain.RecoveredJobTarget;
 import com.example.billingbatch.jobs.settlement.BatchRecoveryService;
 import java.time.YearMonth;
-import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
+import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
@@ -28,6 +29,7 @@ public class ManualController {
   private final JdbcTemplate jdbcTemplate;
   private final JobLauncher jobLauncher;
   private final Job billingJob;
+  private final JobExplorer jobExplorer;
 
   /**
    * 상태 변경
@@ -82,19 +84,16 @@ public class ManualController {
 
     log.info(">>>>> [배치RETRY-API호출됨] billing job for month: {}, retry ", targetMonth);
 
-    // 1. STARTED / STOPPING 실행 정리 -> restart
-    RecoveredJobTarget target =
-        batchRecoveryService.recoverLatestExecution(targetMonth);
+    /** 실행 중인 배치가 있으면 무조건 차단 **/
+    Set<JobExecution> runningExecutions =
+        jobExplorer.findRunningJobExecutions("billingJob");
 
-    if (target != null) {
-      try {
-        jobLauncher.run(billingJob, target.getJobParameters());
-        return "이전 실행 재시작 요청 완료";
-      } catch (Exception e) {
-        log.error("복구 배치 재시작 실패 params={}", target.getJobParameters(), e);
-        return "이전 실행 재시작 중 오류 발생";
-      }
+    if (!runningExecutions.isEmpty()) {
+      log.warn("RETRY 차단 - 실행 중인 배치 존재: {}", runningExecutions);
+      return "현재 실행 중인 배치가 있어 재실행할 수 없습니다.";
     }
+
+    log.info("실행중인 배치 없음");
 
 
 
