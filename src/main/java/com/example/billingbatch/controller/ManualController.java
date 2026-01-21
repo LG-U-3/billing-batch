@@ -74,20 +74,33 @@ public class ManualController {
     }
   }
 
-  /** test용 **/
-  @PostMapping("/billing-job-test")
+  /** 자동 배치 completed 이후 수동 재실행 **/
+  @PostMapping("/billing-job-retry")
   public String launchBillingJobTest() {
 
     String targetMonth = YearMonth.now().minusMonths(1).toString();
 
-    /** 배치 완료될때마다 수정 ex) test2, test3,... **/
-    String test = "test2";
-    log.info(">>>>> [배치API호출됨] billing job for month: {}", targetMonth);
+    log.info(">>>>> [배치RETRY-API호출됨] billing job for month: {}, retry ", targetMonth);
+
+    /** 재실행 전 기존 실행 기록 삭제 **/
+
+    // billing_settlements 삭제
+    jdbcTemplate.update(
+        "DELETE FROM billing_settlements WHERE target_month = ?",
+        targetMonth
+    );
+
+    // batch_runs 삭제
+    jdbcTemplate.update(
+        "DELETE FROM batch_runs WHERE target_month = ?",
+        targetMonth
+    );
 
     JobParameters jobParameters = new JobParametersBuilder()
         // JobInstance 식별자 (고정)
         .addString("targetMonth", targetMonth)
-        .addString("test", test)
+        .addLong("runAt", System.currentTimeMillis())
+        .addString("createdBy", "ADMIN", false)
         .toJobParameters();
 
 

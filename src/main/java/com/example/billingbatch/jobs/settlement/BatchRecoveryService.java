@@ -13,6 +13,7 @@ import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /** Job 재시작 제어 **/
@@ -25,12 +26,52 @@ public class BatchRecoveryService {
   private final JobExplorer jobExplorer;
   private final JobRepository jobRepository;
 
+  private final JdbcTemplate jdbcTemplate;
+
 
   /** 공통로직 **/
   private void recoverExecution(JobExecution execution) {
 
     log.warn(">>> [배치 복구] execution 복구 시작. id={}, status={}",
         execution.getId(), execution.getStatus());
+
+    /** batch_runs에 데이터 넣기 **/
+    // 1. StepExecution 집계
+    long successCount = 0;
+    long failCount = 0;
+
+    for (StepExecution step : execution.getStepExecutions()) {
+      successCount += step.getWriteCount();
+
+      failCount += step.getReadSkipCount()
+          + step.getProcessSkipCount()
+          + step.getWriteSkipCount();
+    }
+
+    long totalCount = successCount + failCount;
+
+    Long batchRunId = execution.getId();
+
+    log.warn("배치런아이디 확인 >>>>>>!!!! batchRunId ={}", batchRunId);
+
+    // 2. batch_runs 업데이트
+    if (batchRunId != null) {
+      jdbcTemplate.update("""
+      UPDATE batch_runs
+         SET status_id = 5,          -- FAILED
+             total_count = ?,
+             success_count = ?,
+             fail_count = ?,
+             fail_reason = 'SERVER_CRASH'
+       WHERE batch_run_id = ?
+    """,
+          totalCount,
+          successCount,
+          failCount,
+          batchRunId
+      );
+    }
+
 
     // StepExecution 정리
     for (StepExecution stepExecution : execution.getStepExecutions()) {
@@ -39,7 +80,6 @@ public class BatchRecoveryService {
 
         stepExecution.setStatus(BatchStatus.FAILED);
         stepExecution.setExitStatus(ExitStatus.FAILED);
-        stepExecution.setEndTime(LocalDateTime.now());
 
         jobRepository.update(stepExecution);
       }
@@ -48,7 +88,6 @@ public class BatchRecoveryService {
     // JobExecution 정리
     execution.setStatus(BatchStatus.FAILED);
     execution.setExitStatus(ExitStatus.FAILED);
-    execution.setEndTime(LocalDateTime.now());
 
     jobRepository.update(execution);
 
