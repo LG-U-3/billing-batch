@@ -13,12 +13,14 @@ public class MessageRetryScheduler {
 
   private final MessageRetryService messageRetryService;
 
-  // FAILED 재시도 시간 조절
-  @Scheduled(fixedDelay = 300_000, initialDelay = 5_000)
+  @Scheduled(fixedDelay = 60_000, initialDelay = 5_000)
   public void retryFailed() {
+
+    log.info("[MessageRetryScheduler] tick"); // 항상 찍기
+
     int count = messageRetryService.retryFailedMessages(1000);
-    if (count > 0) {
-      log.info("[MessageRetryScheduler] republished {} failed messages", count);
-    }
+
+    // 항상 찍기 (count=0이라도)
+    log.info("[MessageRetryScheduler] republished count={}", count);
   }
 }
