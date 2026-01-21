@@ -68,7 +68,11 @@ public class ManualController {
       return ">>>>> 이미 실행 중인 배치가 있습니다.";
     } catch (JobInstanceAlreadyCompleteException e) { // 이미 완료된 배치일 때: 같은 JobName + 같은 JobParameter + 상태 completed
       return ">>>>> 이미 완료된 배치입니다.";
-    } catch (Exception e) {
+    } catch (UnsatisfiedDependencyException
+             | CannotCreateTransactionException e) {
+      log.error(">>> db 연결에 오류가 발생했습니다.", e);
+      return ">>>>> DB 연결에 문제가 발생했습니다. 연결을 확인해주세요.";
+    }catch (Exception e) {
       log.error(">>>>> 배치 실행 중 에러", e);
       return ">>>>> 배치 실행 실패";
     }
