@@ -13,8 +13,10 @@ import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
+import org.springframework.beans.factory.UnsatisfiedDependencyException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -124,7 +126,8 @@ public class ManualController {
       jobLauncher.run(billingJob, params);
       return "정산 배치 재실행 요청 완료";
 
-    } catch (DataAccessException e | UnsatisfiedDependencyException | CannotCreateTransactionException e) {
+    } catch (DataAccessException | UnsatisfiedDependencyException |
+             CannotCreateTransactionException e) {
       log.error("DB 오류", e);
       return "DB 연결에 문제가 발생했습니다.";
     } catch (Exception e) {

@@ -64,14 +64,13 @@ public class BatchStartupRecovery {
       log.error(">>> 배치 재시작 불가 상태입니다. params={}",
           target.getJobParameters(), e);
 
-      } catch (JobParametersInvalidException e) {
-        log.error(">>> 잘못된 JobParameters입니다. params={}",
-            target.getJobParameters(), e);
-      } catch (UnsatisfiedDependencyException
-               | CannotCreateTransactionException e) {
-        log.error(">>> db 연결에 오류가 발생했습니다. params={}",
-            target.getJobParameters(), e);
-      }
+    } catch (JobParametersInvalidException e) {
+      log.error(">>> 잘못된 JobParameters입니다. params={}",
+          target.getJobParameters(), e);
+    } catch (UnsatisfiedDependencyException
+             | CannotCreateTransactionException e) {
+      log.error(">>> db 연결에 오류가 발생했습니다. params={}",
+          target.getJobParameters(), e);
     }
 
     log.warn(">>> 서버 기동 시 배치 복구 종료");
