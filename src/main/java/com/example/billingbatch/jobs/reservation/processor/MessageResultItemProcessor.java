@@ -6,12 +6,14 @@ import com.example.billingbatch.jobs.reservation.processor.dto.ReservationInfo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
+@StepScope
 @RequiredArgsConstructor
 public class MessageResultItemProcessor
     implements ItemProcessor<Long, MessageSendResult>, StepExecutionListener {
