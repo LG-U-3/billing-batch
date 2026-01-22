@@ -1,7 +1,7 @@
 package com.example.billingbatch.jobs.settlement;
 
 import com.example.billingbatch.domain.RecoveredJobTarget;
-import java.util.List;
+import java.time.YearMonth;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -31,30 +31,38 @@ public class BatchStartupRecovery {
   @EventListener(ApplicationReadyEvent.class)
   public void recoverAndRestartIfNeeded() {
 
-    log.warn(">>> 서버 기동 시 배치 복구 시작");
+    String targetMonth = YearMonth.now().minusMonths(1).toString();
 
-    List<RecoveredJobTarget> recovered =
-        batchRecoveryService.recoverAllStuckExecutions();
+    log.warn(">>> 서버 기동 시 배치 복구 시작. targetMonth={}", targetMonth);
 
-    for (RecoveredJobTarget target : recovered) {
+    // targetMonth 기준 마지막 STARTED 1건만 복구
+    RecoveredJobTarget target =
+        batchRecoveryService.recoverLatestExecution(targetMonth);
 
-      try {
-        log.warn(">>> 복구된 배치 재실행 시도: {}",
-            target.getJobParameters());
+    if (target == null) {
+      log.warn(">>> 복구 대상 배치 없음");
+      return;
+    }
 
-        jobLauncher.run(billingJob, target.getJobParameters());
+    try {
+      log.warn(">>> 복구된 배치 재시작 시도: {}",
+          target.getJobParameters());
 
-      } catch (JobExecutionAlreadyRunningException e) {
-        log.warn(">>> 이미 실행 중인 배치입니다. params={}",
-            target.getJobParameters());
+      jobLauncher.run(billingJob, target.getJobParameters());
 
-      } catch (JobInstanceAlreadyCompleteException e) {
-        log.warn(">>> 이미 완료된 배치입니다. params={}",
-            target.getJobParameters());
+      log.warn(">>> 서버 기동 시 배치 재시작 요청 완료");
 
-      } catch (JobRestartException e) {
-        log.error(">>> 배치 재시작 불가 상태입니다. params={}",
-            target.getJobParameters(), e);
+    } catch (JobExecutionAlreadyRunningException e) {
+      log.warn(">>> 이미 실행 중인 배치입니다. params={}",
+          target.getJobParameters());
+
+    } catch (JobInstanceAlreadyCompleteException e) {
+      log.warn(">>> 이미 완료된 배치입니다. params={}",
+          target.getJobParameters());
+
+    } catch (JobRestartException e) {
+      log.error(">>> 배치 재시작 불가 상태입니다. params={}",
+          target.getJobParameters(), e);
 
       } catch (JobParametersInvalidException e) {
         log.error(">>> 잘못된 JobParameters입니다. params={}",
@@ -66,7 +74,7 @@ public class BatchStartupRecovery {
       }
     }
 
-    log.warn(">>> 서버 기동 시 배치 복구 완료");
+    log.warn(">>> 서버 기동 시 배치 복구 종료");
   }
 
 }

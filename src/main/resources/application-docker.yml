@@ -1,4 +1,3 @@
-
 server:
   port: 8090
 
@@ -27,10 +26,11 @@ spring:
       ddl-auto: none
     open-in-view: false
 
- 
- 
-
   data:
     redis:
       host: redis
       port: 6379
+redis:
+  stream:
+    message:
+      key: message-stream
