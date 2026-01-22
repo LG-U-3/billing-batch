@@ -56,8 +56,7 @@ public class BillingJobConfig {
         .processor(settlementProcessor)
         .writer(settlementWriter())
         .faultTolerant()
-        .retry(ConnectException.class)
-        .retry(UnsatisfiedDependencyException.class)
+        .retry(Exception.class)
         .retryLimit(3)
         .build();
   }
