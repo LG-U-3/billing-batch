@@ -1,11 +1,13 @@
 package com.example.billingbatch.service;
 
-import com.example.billingbatch.producer.MessageStreamProducer;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import com.example.billingbatch.producer.MessageStreamProducer;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MessageRetryService {
@@ -23,7 +25,8 @@ public class MessageRetryService {
   private static final String CHANNEL_SMS = "SMS";
 
   public int retryFailedMessages(int limit) {
-
+    
+    log.info("[retryFailedMessages] started");
     int emailRepublished = republishEmailRetries(limit);
     int smsRepublished = republishSmsFallback(limit);
 

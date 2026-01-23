@@ -13,11 +13,11 @@ public class MessageRetryScheduler {
 
   private final MessageRetryService messageRetryService;
 
-  @Scheduled(fixedDelay = 300_000, initialDelay = 5_000)
+  @Scheduled(fixedDelay = 60_000, initialDelay = 10_000)
   public void retryFailed() {
 
 
-    int count = messageRetryService.retryFailedMessages(1000);
+    int count = messageRetryService.retryFailedMessages(10000);
 
   }
 }
