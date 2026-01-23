@@ -43,5 +43,5 @@ message:
   recovery:
     timeout-minutes: 60
     fixed-delay-ms: 300000
-    claim-count: 100
-    db-batch-size: 500
+    claim-count: 10000
+    db-batch-size: 10000
