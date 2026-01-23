@@ -1,4 +1,3 @@
-
 server:
   port: 8090
 
@@ -31,8 +30,17 @@ spring:
     redis:
       host: redis
       port: 6379
-      
 redis:
   stream:
     message:
       key: message-stream
+      consumer: billing-batch   # 추가 
+
+message:
+  stream: message-stream        # recovery에서 읽을 값이면 여기에
+  group: message-group
+  recovery:
+    timeout-minutes: 60
+    fixed-delay-ms: 300000
+    claim-count: 10000
+    db-batch-size: 10000

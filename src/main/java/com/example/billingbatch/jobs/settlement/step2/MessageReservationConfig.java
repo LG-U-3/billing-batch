@@ -34,7 +34,7 @@ public class MessageReservationConfig {
     return new StepBuilder("messageReservationStep", jobRepository)
         .tasklet((contribution, chunkContext) -> {
           // status_id 조회 (WAITING)
-          String statusSql = "SELECT id FROM codes WHERE code = 'WAITING' AND group_id = 3";
+          String statusSql = "SELECT id FROM codes WHERE code = 'WAITING' AND group_id = 6";
           Long statusId = jdbcTemplate.queryForObject(statusSql, Long.class);
 
           // channel_type_id 조회
