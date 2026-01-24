@@ -14,5 +14,7 @@ RUN ./gradlew clean bootJar -x test --no-daemon
 # 2) Runtime stage
 FROM eclipse-temurin:17-jre
 WORKDIR /app
+
 COPY --from=build /app/build/libs/*.jar app.jar
-ENTRYPOINT ["java","-Xms256m","-Xmx768m","-jar","/app/app.jar"]
+
+ENTRYPOINT ["java", "-Xms256m", "-Xmx512m", "-Xss512k", "-jar", "/app/app.jar"]

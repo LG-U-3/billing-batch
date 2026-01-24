@@ -91,8 +91,8 @@ public class ReservedMessageJobConfig {
   @Bean
   public TaskExecutor reservationTaskExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(4);
-    executor.setMaxPoolSize(8);
+    executor.setCorePoolSize(2);
+    executor.setMaxPoolSize(2);
     executor.setThreadNamePrefix("reservation-partition-");
     executor.initialize();
     return executor;
