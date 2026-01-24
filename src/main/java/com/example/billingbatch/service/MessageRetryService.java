@@ -1,6 +1,12 @@
 package com.example.billingbatch.service;
 
+import com.example.billingbatch.common.code.CodeCache;
+import com.example.billingbatch.common.code.enums.MessageSendStatus;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import com.example.billingbatch.producer.MessageStreamProducer;
@@ -14,18 +20,29 @@ public class MessageRetryService {
 
   private final JdbcTemplate jdbcTemplate;
   private final MessageStreamProducer messageStreamProducer;
+  private final CodeCache codeCache;
 
-  // status_id
-  private static final int FAILED = 9;
-  private static final int EXCEEDED = 11;
+  private Long STATUS_PROCESSING;
+  private Long STATUS_FAILED;
+  private Long STATUS_EXCEEDED;
 
-  // 재시도는 무조건 EMAIL
+  private static final int MAX_EMAIL_RETRY_COUNT = 2;
+  private static final String PURPOSE_BILLING = "BILLING";
+
   private static final String CHANNEL_EMAIL = "EMAIL";
-  // fallback은 SMS
   private static final String CHANNEL_SMS = "SMS";
 
+  @EventListener(ApplicationReadyEvent.class)
+  void initCodes() {
+    this.STATUS_PROCESSING =
+        codeCache.getId("MESSAGE_SEND_STATUS", MessageSendStatus.PROCESSING.name());
+    this.STATUS_FAILED =
+        codeCache.getId("MESSAGE_SEND_STATUS", MessageSendStatus.FAILED.name());
+    this.STATUS_EXCEEDED =
+        codeCache.getId("MESSAGE_SEND_STATUS", MessageSendStatus.EXCEEDED.name());
+  }
+
   public int retryFailedMessages(int limit) {
-    
     log.info("[retryFailedMessages] started");
     int emailRepublished = republishEmailRetries(limit);
     int smsRepublished = republishSmsFallback(limit);
@@ -33,60 +50,109 @@ public class MessageRetryService {
     return emailRepublished + smsRepublished;
   }
 
-  // FAILED(9) + retry_count 0/1/2 는 "무조건 EMAIL"로 재발행
+  // FAILED(BILLING) → PROCESSING (bulk) → EMAIL 재실행
   private int republishEmailRetries(int limit) {
-    String sql = """
-        select
-            msr.id as message_send_result_id,
-            pu.code as purpose_code
-        from message_send_results msr
-        join message_templates mt on mt.id = msr.template_id
-        join codes pu on pu.id = mt.purpose_type_id
-        where msr.status_id = ?
-          and msr.processed_at is not null
-          and msr.retry_count in (0, 1, 2)
-        order by msr.processed_at asc
-        limit ?
-        """;
 
-    List<RetryTarget> targets = jdbcTemplate.query(sql,
-        (rs, rowNum) -> new RetryTarget(rs.getLong("message_send_result_id"),
-            rs.getString("purpose_code")),
-        FAILED, limit);
+    LocalDateTime batchStart = LocalDateTime.now();
+    int updated = jdbcTemplate.update("""
+            UPDATE message_send_results msr
+            SET
+              msr.status_id    = ?,
+              msr.requested_at = CURRENT_TIMESTAMP,
+              msr.processed_at = NULL
+            WHERE msr.id IN (
+              SELECT id FROM (
+                SELECT msr2.id
+                FROM message_send_results msr2
+                JOIN message_templates mt ON mt.id = msr2.template_id
+                JOIN codes pu ON pu.id = mt.purpose_type_id
+                WHERE msr2.status_id = ?
+                  AND pu.code = ?
+                  AND msr2.retry_count < ?
+                  AND msr2.processed_at IS NOT NULL
+                ORDER BY msr2.processed_at
+                LIMIT ?
+              ) t
+            )
+            """,
+        STATUS_PROCESSING,
+        STATUS_FAILED,
+        PURPOSE_BILLING,
+        MAX_EMAIL_RETRY_COUNT,
+        limit
+    );
 
-    for (RetryTarget t : targets) {
-      // 채널은 항상 EMAIL 강제
-      messageStreamProducer.publish(t.messageSendResultId(), CHANNEL_EMAIL, t.purposeCode());
+    log.info("[republishEmailRetries] bulk update count={}", updated);
+    if (updated == 0) {
+      return 0;
     }
-    return targets.size();
+
+    List<Long> ids = jdbcTemplate.queryForList("""
+            SELECT msr.id
+              FROM message_send_results msr
+             WHERE msr.status_id = ?
+               AND msr.processed_at IS NULL
+            """,
+        Long.class,
+        STATUS_PROCESSING
+    );
+
+    for (Long id : ids) {
+      messageStreamProducer.publish(id, CHANNEL_EMAIL, PURPOSE_BILLING);
+    }
+
+    return ids.size();
   }
 
-  // EXCEEDED(11)는 SMS fallback으로 발행
+  // EXCEEDED(BILLING) → PROCESSING (bulk) → SMS fallback
   private int republishSmsFallback(int limit) {
-    String sql = """
-        select
-            msr.id as message_send_result_id,
-            pu.code as purpose_code
-        from message_send_results msr
-        join message_templates mt on mt.id = msr.template_id
-        join codes pu on pu.id = mt.purpose_type_id
-        where msr.status_id = ?
-          and msr.processed_at is not null
-        order by msr.processed_at asc
-        limit ?
-        """;
 
-    List<RetryTarget> targets = jdbcTemplate.query(sql,
-        (rs, rowNum) -> new RetryTarget(rs.getLong("message_send_result_id"),
-            rs.getString("purpose_code")),
-        EXCEEDED, limit);
+    LocalDateTime batchStart = LocalDateTime.now();
+    int updated = jdbcTemplate.update("""
+            UPDATE message_send_results msr
+            SET
+              msr.status_id    = ?,
+              msr.requested_at = CURRENT_TIMESTAMP,
+              msr.processed_at = NULL
+            WHERE msr.id IN (
+              SELECT id FROM (
+                SELECT msr2.id
+                FROM message_send_results msr2
+                JOIN message_templates mt ON mt.id = msr2.template_id
+                JOIN codes pu ON pu.id = mt.purpose_type_id
+                WHERE msr2.status_id = ?
+                  AND pu.code = ?
+                  AND msr2.processed_at IS NOT NULL
+                ORDER BY msr2.processed_at
+                LIMIT ?
+              ) t
+            )
+            """,
+        STATUS_PROCESSING,
+        STATUS_EXCEEDED,
+        PURPOSE_BILLING,
+        limit
+    );
 
-    for (RetryTarget t : targets) {
-      messageStreamProducer.publish(t.messageSendResultId(), CHANNEL_SMS, t.purposeCode());
+    log.info("[republishSmsFallback] bulk update count={}", updated);
+    if (updated == 0) {
+      return 0;
     }
-    return targets.size();
-  }
 
-  private record RetryTarget(Long messageSendResultId, String purposeCode) {
+    List<Long> ids = jdbcTemplate.queryForList("""
+            SELECT msr.id
+              FROM message_send_results msr
+             WHERE msr.status_id = ?
+               AND msr.processed_at IS NULL
+            """,
+        Long.class,
+        STATUS_PROCESSING
+    );
+
+    for (Long id : ids) {
+      messageStreamProducer.publish(id, CHANNEL_SMS, PURPOSE_BILLING);
+    }
+
+    return ids.size();
   }
 }
