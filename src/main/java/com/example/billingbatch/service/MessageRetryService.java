@@ -21,9 +21,11 @@ public class MessageRetryService {
 
   // 재시도는 무조건 EMAIL
   private static final String CHANNEL_EMAIL = "EMAIL";
-  // fallback은 SMS
+  // fallback 은 SMS
   private static final String CHANNEL_SMS = "SMS";
-
+  // Billing purpose 만 자동 재처리
+  private static final String PURPOSE_BILLING = "BILLING";
+  
   public int retryFailedMessages(int limit) {
     
     log.info("[retryFailedMessages] started");
@@ -33,7 +35,7 @@ public class MessageRetryService {
     return emailRepublished + smsRepublished;
   }
 
-  // FAILED(9) + retry_count 0/1/2 는 "무조건 EMAIL"로 재발행
+  // FAILED(9) + retry_count 0/1/2 는 "무조건 EMAIL"로 재발행 + Billing purpose 만
   private int republishEmailRetries(int limit) {
     String sql = """
         select
@@ -45,14 +47,18 @@ public class MessageRetryService {
         where msr.status_id = ?
           and msr.processed_at is not null
           and msr.retry_count in (0, 1, 2)
+          and pu.code = ?
         order by msr.processed_at asc
         limit ?
         """;
 
-    List<RetryTarget> targets = jdbcTemplate.query(sql,
-        (rs, rowNum) -> new RetryTarget(rs.getLong("message_send_result_id"),
+    List<RetryTarget> targets = jdbcTemplate.query(
+        sql,
+        (rs, rowNum) -> new RetryTarget(
+            rs.getLong("message_send_result_id"),
             rs.getString("purpose_code")),
-        FAILED, limit);
+        FAILED, PURPOSE_BILLING, limit
+    );
 
     for (RetryTarget t : targets) {
       // 채널은 항상 EMAIL 강제
@@ -61,7 +67,7 @@ public class MessageRetryService {
     return targets.size();
   }
 
-  // EXCEEDED(11)는 SMS fallback으로 발행
+  // EXCEEDED(11)는 SMS fallback 으로 발행 + Billing purpose 만
   private int republishSmsFallback(int limit) {
     String sql = """
         select
@@ -72,14 +78,19 @@ public class MessageRetryService {
         join codes pu on pu.id = mt.purpose_type_id
         where msr.status_id = ?
           and msr.processed_at is not null
+          and pu.code = ?
         order by msr.processed_at asc
         limit ?
         """;
 
-    List<RetryTarget> targets = jdbcTemplate.query(sql,
-        (rs, rowNum) -> new RetryTarget(rs.getLong("message_send_result_id"),
-            rs.getString("purpose_code")),
-        EXCEEDED, limit);
+    List<RetryTarget> targets = jdbcTemplate.query(
+        sql,
+        (rs, rowNum) -> new RetryTarget(
+            rs.getLong("message_send_result_id"),
+            rs.getString("purpose_code")
+        ),
+        EXCEEDED, PURPOSE_BILLING, limit
+    );
 
     for (RetryTarget t : targets) {
       messageStreamProducer.publish(t.messageSendResultId(), CHANNEL_SMS, t.purposeCode());

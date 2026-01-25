@@ -16,8 +16,8 @@ public class MessageRetryScheduler {
   @Scheduled(fixedDelay = 60_000, initialDelay = 10_000)
   public void retryFailed() {
 
-
     int count = messageRetryService.retryFailedMessages(10000);
+    log.info("[MessageRetryScheduler] republished={}", count);
 
   }
 }
